@@ -1,0 +1,445 @@
+1背景
+
+转Linux刚刚1年，vim操作还不能应对工程代码，之前一直都是Gnome桌面 + Clion 作开发环境，无奈在服务器上没有这样的环境，
+
+看同事是（Windows）Source Insight + WinSCP + Linux 开发，来回同步文件有点麻烦，所以想尝试搭个Samba服务器做共享文件。
+
+不过希望以后还是要转到vim上来。
+
+ 
+2环境
+
+CentOS系统
+
+[root@min-base ~]# cat /etc/redhat-release 
+CentOS Linux release 7.2.1511 (Core) 
+
+ 
+
+Samba服务器
+复制代码
+
+[root@min-base ~]# rpm -qi samba
+Name        : samba
+Epoch       : 0
+Version     : 4.4.4
+Release     : 9.el7
+Architecture: x86_64
+Install Date: Sun 18 Dec 2016 11:59:56 PM CST
+Group       : System Environment/Daemons
+Size        : 1869290
+License     : GPLv3+ and LGPLv3+
+Signature   : RSA/SHA256, Mon 21 Nov 2016 04:38:30 AM CST, Key ID 24c6a8a7f4a80eb5
+Source RPM  : samba-4.4.4-9.el7.src.rpm
+Build Date  : Mon 07 Nov 2016 06:31:03 PM CST
+Build Host  : worker1.bsys.centos.org
+Relocations : (not relocatable)
+Packager    : CentOS BuildSystem <http://bugs.centos.org>
+Vendor      : CentOS
+URL         : http://www.samba.org/
+Summary     : Server and Client software to interoperate with Windows machines
+Description :
+Samba is the standard Windows interoperability suite of programs for Linux and
+Unix.
+
+复制代码
+ 
+3安装
+
+[root@base ~]# yum -y install samba samba-client
+
+ 
+4配置
+
+进入samba配置目录
+
+[root@base ~]# cd /etc/samba/
+
+ 
+
+备份smb.conf
+
+[root@base samba]# mv smb.conf smb.conf.origin
+
+ 
+
+新建smb.conf
+
+[root@base samba]# vim smb.conf
+
+内容如下，保存并退出
+复制代码
+
+[global]
+        workgroup = WORKGROUP
+        server string = Ted Samba Server %v
+        netbios name = TedSamba
+        security = user
+        map to guest = Bad User
+        passdb backend = tdbsam
+
+[FileShare]
+        comment = share some files
+        path = /smb/fileshare
+        public = yes
+        writeable = yes
+        create mask = 0644
+        directory mask = 0755
+
+[WebDev]
+        comment = project development directory
+        path = /smb/webdev
+        valid users = ted
+        write list = ted
+        printable = no
+        create mask = 0644
+        directory mask = 0755
+
+复制代码
+
+ 注释：
+
+workgroup 项应与 Windows 主机保持一致，这里是WORKGROUP
+
+security、map to guest项设置为允许匿名用户访问
+
+再下面有两个section，实际为两个目录，section名就是目录名（映射到Windows上可以看见）。
+
+第一个目录名是FileShare，匿名、公开、可写
+
+第二个目录吗是WebDev，限定ted用户访问
+
+默认文件属性644/755（不然的话，Windows上在这个目录下新建的文件会有“可执行”属性）
+
+ 
+
+创建用户
+复制代码
+
+[root@base samba]# groupadd co3
+[root@base samba]# useradd ted -g co3 -s /sbin/nologin
+[root@base samba]# smbpasswd -a ted
+New SMB password:
+Retype new SMB password:
+Added user ted.
+[root@base samba]# 
+
+复制代码
+
+注意这里smbpasswd将使用系统用户。设置密码为1
+
+ 
+
+创建共享目录
+
+[root@base samba]# mkdir -p /smb/{fileshare,webdev}
+[root@base samba]# chown nobody:nobody /smb/fileshare/
+[root@base samba]# chown ted:co3 /smb/webdev/
+
+注意设置属性，不然访问不了。
+
+ 
+
+启动Samba服务，设置开机启动
+
+[root@base samba]# systemctl start smb
+[root@base samba]# systemctl enable smb
+Created symlink from /etc/systemd/system/multi-user.target.wants/smb.service to /usr/lib/systemd/system/smb.service.
+[root@base samba]# 
+
+ 
+
+开放端口
+复制代码
+
+[root@base samba]# firewall-cmd --permanent --add-port=139/tcp
+success
+[root@base samba]# firewall-cmd --permanent --add-port=445/tcp
+success
+
+[root@base samba]# systemctl restart firewalld
+
+[root@base samba]# 
+
+复制代码
+
+或者直接把防火墙关了也行。
+ 
+5使用
+本机测试
+
+可以使用testparm测试samba配置是否正确
+复制代码
+
+[root@base samba]# testparm 
+Load smb config files from /etc/samba/smb.conf
+rlimit_max: increasing rlimit_max (1024) to minimum Windows limit (16384)
+Processing section "[FileShare]"
+Processing section "[WebDev]"
+Loaded services file OK.
+Server role: ROLE_STANDALONE
+
+Press enter to see a dump of your service definitions
+
+# Global parameters
+[global]
+    netbios name = TEDSAMBA
+    server string = Ted Samba Server %v
+    map to guest = Bad User
+    security = USER
+    idmap config * : backend = tdb
+
+
+[FileShare]
+    comment = share some files
+    path = /smb/fileshare
+    guest ok = Yes
+    read only = No
+
+
+[WebDev]
+    comment = project development directory
+    path = /smb/webdev
+    create mask = 0644
+
+
+    valid users = ted
+    write list = ted
+[root@base samba]# 
+
+复制代码
+
+ 
+
+root用户的话，不用密码可直接查看samba服务器情况
+复制代码
+
+[root@base samba]# smbclient -L localhost 
+Enter root's password: 
+Domain=[WORKGROUP] OS=[Windows 6.1] Server=[Samba 4.4.4]
+
+    Sharename       Type      Comment
+    ---------       ----      -------
+    FileShare       Disk      share some files
+    WebDev          Disk      project development directory
+    IPC$            IPC       IPC Service (Ted Samba Server 4.4.4)
+Domain=[WORKGROUP] OS=[Windows 6.1] Server=[Samba 4.4.4]
+
+    Server               Comment
+    ---------            -------
+
+    Workgroup            Master
+    ---------            -------
+[root@base samba]# 
+
+复制代码
+
+ 
+Linux访问
+
+Samba服务端配置
+
+[root@min-base webdev]# vim /etc/samba/smb.conf
+
+内容如下
+复制代码
+
+[global]        
+        workgroup = WORKGROUP
+        server string = Samba Server Version %v
+        netbios name = MYSERVER
+        security = user
+        passdb backend = tdbsam
+
+[tvms]
+        path = /root/tvms-test
+        public = yes
+        valid user = root
+        writeable = yes
+        printable = no
+        create mask = 0644
+        directory mask = 0755
+
+复制代码
+
+ 
+
+在局域网内另外一台机器上，
+
+挂载目录
+
+安装cifs
+
+[root@min-base ~]# yum -y install cifs-utils
+
+ 
+
+挂载smb目录
+复制代码
+
+[root@min-base ~]# mkdir /mnt/tvms
+[root@min-base ~]# mount //192.168.118.133/tvms /mnt/tvms
+Password for root@//192.168.118.133/tvms:  *
+[root@min-base ~]# df -Th
+Filesystem              Type      Size  Used Avail Use% Mounted on
+/dev/mapper/centos-root xfs        18G  988M   17G   6% /
+devtmpfs                devtmpfs  479M     0  479M   0% /dev
+tmpfs                   tmpfs     489M     0  489M   0% /dev/shm
+tmpfs                   tmpfs     489M  6.7M  483M   2% /run
+tmpfs                   tmpfs     489M     0  489M   0% /sys/fs/cgroup
+/dev/sda1               xfs       497M  117M  381M  24% /boot
+tmpfs                   tmpfs      98M     0   98M   0% /run/user/0
+//192.168.118.133/tvms  cifs       18G  8.5G  9.1G  49% /mnt/tvms
+[root@min-base ~]# ll /mnt/tvms/
+total 3952
+drwxr-xr-x. 10 root root       0 Dec 21 03:40 suricata-3.1.2
+-rw-r--r--.  1 root root 4042824 Dec 21 03:22 suricata-3.1.2.zip
+[root@min-base ~]# 
+
+复制代码
+
+输入密码：1
+
+ 
+
+卸载目录
+
+[root@min-base mnt]# umount /mnt/tvms/
+
+ 
+
+如果出现
+
+umount: /mnt/tvms: target is busy.
+        (In some cases useful info about processes that use
+         the device is found by lsof(8) or fuser(1))
+
+ 
+
+可以使用fuser卸载
+复制代码
+
+[root@min-base ~]# yum -y install psmisc
+[root@min-base ~]# fuser -m -v -i -k /mnt/tvms
+                          USER        PID ACCESS COMMAND
+/mnt/tvms:                root     kernel mount /mnt/tvms
+                          root       2760 ..c.. bash
+Kill process 2760 ? (y/N) y
+
+Connection closed by foreign host.
+
+Disconnected from remote host(192.168.118.132) at 19:46:12.
+
+Type `help' to learn how to use Xshell prompt.
+[c:\~]$ 
+
+Connecting to 192.168.118.132:22...
+Connection established.
+To escape to local shell, press 'Ctrl+Alt+]'.
+
+WARNING! The remote SSH server rejected X11 forwarding request.
+Last login: Wed Dec 21 03:27:53 2016 from 192.168.118.1
+[root@min-base ~]# umount /mnt
+[root@min-base ~]# df
+Filesystem              1K-blocks    Used Available Use% Mounted on
+/dev/mapper/centos-root  18307072 1011444  17295628   6% /
+devtmpfs                   490236       0    490236   0% /dev
+tmpfs                      500680       0    500680   0% /dev/shm
+tmpfs                      500680    6836    493844   2% /run
+tmpfs                      500680       0    500680   0% /sys/fs/cgroup
+/dev/sda1                  508588  118860    389728  24% /boot
+tmpfs                      100136       0    100136   0% /run/user/0
+
+复制代码
+
+ 
+
+自动挂载目录
+
+[root@min-base ~]# vi /etc/fstab 
+
+ 
+
+添加如下内容
+
+//192.168.118.133/tvms  /mnt/tvms               cifs    defaults,username=root,password=1       0 0
+
+ 
+
+重新挂载
+复制代码
+
+[root@min-base ~]# mount -a
+[root@min-base ~]# df
+Filesystem              1K-blocks    Used Available Use% Mounted on
+/dev/mapper/centos-root  18307072 1012316  17294756   6% /
+devtmpfs                   490236       0    490236   0% /dev
+tmpfs                      500680       0    500680   0% /dev/shm
+tmpfs                      500680    6836    493844   2% /run
+tmpfs                      500680       0    500680   0% /sys/fs/cgroup
+/dev/sda1                  508588  118860    389728  24% /boot
+tmpfs                      100136       0    100136   0% /run/user/0
+//192.168.118.133/tvms   18307072 8819380   9487692  49% /mnt/tvms
+[root@min-base ~]# 
+
+复制代码
+
+ 
+Windows访问
+1）在Windwos资源管理器访问
+
+访问路径里填上: \\${Samba服务器的IP} ，然后回车，可以看见共享的目录。
+
+ 
+
+FileShare是可以匿名访问的，可以访问、新建、删除文件。
+
+这里拖进去一个txt文件，可以在Linux上看见该文件。
+
+ 
+2）映射网络驱动器
+
+右边的WebDev目录是需要密码访问的
+
+ 
+
+这里演示一下映射该目录为网络驱动器。
+
+“桌面” 右键单击“此电脑”，选择“映射网络驱动器”
+
+在文件夹位置填写该共享文件的网络路径，这里是\\192.168.118.132\WebDev
+
+勾选“使用其他凭据连接”，点“完成”。
+
+ 
+
+ 
+
+填写用户密码
+
+ 
+
+ 在我的电脑可以看见该网络驱动器（Y）
+
+ 
+
+这里可以放源码工程，然后用Windows下的IDE打开、编辑，再在Linux编译、运行。
+
+ 
+
+enjoy it~
+
+以后有需求再补充Linux挂载samba共享目录、权限配置等等。
+
+ 
+6参考文献
+
+Linux Samba服务器配置
+
+CentOS7安装配置SAMBA服务器
+
+CentOS7下Samba的安装与配置
+
+配置samba服务器，中加入了security=share，但是testparm输出的信息里没有这一条，客户机也无法访问
+
+smb服务器目录和文件权限设置
