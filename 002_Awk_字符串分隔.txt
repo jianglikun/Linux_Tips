@@ -1,0 +1,4 @@
+ less tittle.xtx |awk -F'|kraken:taxid|' '{print$2}'|sed 's\|\\g' |sort|uniq|wc
+ 
+ 
+ less library.fna|grep '>'|awk -F'taxid' '{print$2}'|cut -d '|' -f 2|sort |uniq|wc
