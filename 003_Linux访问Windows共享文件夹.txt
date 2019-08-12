@@ -7,7 +7,7 @@
   4、链接到linux，首先在linux，建立share文件夹
      mkdir share
      然后：
-     mount -t cifs -o username=minxi,password=5503338o（红色） //192.168.0.101/uavgoodsdemoforc（蓝色） ./share（绿色）
+     mount -t cifs -o username=likun.jiang@oumeng.com.cn,password=密码（红色） //192.168.0.101/uavgoodsdemoforc（蓝色） ./share（绿色）
 
      红色：windows的用户名和密码；
 
