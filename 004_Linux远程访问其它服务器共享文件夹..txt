@@ -1,0 +1,36 @@
+1\ smbclient -L "\\192.168.13.184\BJShare\1. Departments\RDC\R&D Project" -U likun.jiang@oumeng.com.cn
+   其实不用这么麻烦，这样就好了
+   smbclient -L "\\192.168.13.184" -U likun.jiang@oumeng.com.cn
+   如果，存在-U的用户的话，会出现:
+   Enter likun.jiang@oumeng.com.cn's password:
+   然后会显示出共享的文件夹（没有$符号）。
+    
+  $ smbclient -L "\\192.168.13.184\BJShare\1. Departments\RDC\R&D Project" -U likun.jiang@oumeng.com.cn
+  Enter likun.jiang@oumeng.com.cn's password: 
+
+	Sharename       Type      Comment
+	---------       ----      -------
+	ADMIN$          Disk      Remote Admin
+	BJ-Comsoft      Disk      
+	BJShare         Disk      
+	C$              Disk      Default share
+	D$              Disk      Default share
+	E$              Disk      Default share
+	empirum$        Disk      
+	EURO-CRM        Disk      
+	FileTransfer    Disk      
+	IAD_Data        Disk      
+	IPC$            IPC       Remote IPC
+	PEO-File$       Disk      
+	peo_folder$     Disk      
+	print$          Disk      Printer Drivers
+  Reconnecting with SMB1 for workgroup listing.
+  Connection to 192.168.13.184 failed (Error NT_STATUS_RESOURCE_NAME_NOT_FOUND)
+  Failed to connect with SMB1 -- no workgroup available
+
+ 
+2\在本机，也就是客户端，新建文件夹
+  mkdir share
+  
+3\链接
+  sudo mount -t cifs -o username='likun.jiang@oumeng.com.cn',password='密码' //192.168.13.184/BJShare（远端文件夹） ./share
