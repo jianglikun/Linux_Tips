@@ -1,0 +1,16 @@
+# 1、首先，在windows上新建共享文件夹，详见：https://blog.csdn.net/sumx2015/article/details/80394460
+# 2、建好共享文件夹之后，就可以在linux链接本地的 共享文件夹了，但是你必须知道你的Windows的ip地址
+#    详见：https://blog.csdn.net/sumx2015/article/details/80394460， 也可以cmd，然后第一个以太网适配器 本地链接：IPv4 地址就是。
+# 3、比如我的本机ip是： 10.61.38.135
+     smbclient -L "10.61.38.135" -U likun.jiang@oumeng.com.cn   
+     这样就能看到共享的文件夹了，没有$符号的那个就可以使用
+  4、链接到linux，首先在linux，建立share文件夹
+     mkdir share
+     然后：
+     mount -t cifs -o username=minxi,password=5503338o（红色） //192.168.0.101/uavgoodsdemoforc（蓝色） ./share（绿色）
+
+     红色：windows的用户名和密码；
+
+     蓝色：windows中要共享的文件夹；
+
+     绿色：需要挂载到linux下的目标文件，可以自行创建（mkdir ~/MyShare）
