@@ -34,3 +34,40 @@
   
 3\链接
   sudo mount -t cifs -o username='likun.jiang@oumeng.com.cn',password='密码' //192.168.13.184/BJShare（远端文件夹） ./share
+  
+
+###想要删除文件夹，先要umount -f ####
+  
+  
+其它，关于权限的问题：
+最近用smb与windows做一个共享文件夹，实现windows中的文件夹共享给linux使用，发现共享文件夹下的文件全是 -rwxr-xr-x 也就是没有写的权限，没办法在linux写入内容，翻找了半天找到以下解决方案
+
+第一个
+
+1. 首先确保 windows下面的共享目录开了用户的读写权限
+
+2. 在挂载命令中要加  dir_mode=0777,file_mode=0777,
+
+  完整的语法：
+
+mount -t cifs -o  user=windows_user,password=1234456,iocharset=utf8,dir_mode=0777,file_mode=0777,codepage=cp936 //192.168.1.1/windows_dir   /webser/mnt/linux_dis
+
+删除挂载：
+
+umount  /webser/mnt/linux_dis
+
+第二种 修改/etc/fstab 默认挂在权限
+
+/etc/fstab是用来存放文件系统的静态信息的文件。位于/etc/目录下，可以用命令less /etc/fstab 来查看，如果要修改的话，则用命令 vi /etc/fstab 来修改。 当系统启动的时候，系统会自动地从这个文件读取信息，并且会自动将此文件中指定的文件系统挂载到指定的目录。下面我来介绍如何在此文件下填写信息。
+
+vim /etc/fstab 
+
+主要是defaults的位置加上自定义的权限 如下图
+
+修改完成后不要忘记
+
+重新挂在以下
+
+umount -a
+
+mount -a
